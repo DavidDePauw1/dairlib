@@ -5,8 +5,9 @@ namespace systems{
 
 EndEffectorVelocityController::EndEffectorVelocityController(
     const MultibodyPlant<double>& plant, std::string ee_frame_name,
-    Eigen::Vector3d ee_contact_frame, double k_d, double k_r)
-    : plant_(plant), num_joints_(plant_.num_positions()),
+    Eigen::Vector3d ee_contact_frame, double k_d, double k_r,
+    double joint_torque_limit) : plant_(plant),
+    num_joints_(plant_.num_positions()),
     ee_joint_frame_(plant_.GetFrameByName(ee_frame_name)){
 
   // Set up this block's input and output ports
@@ -26,6 +27,7 @@ EndEffectorVelocityController::EndEffectorVelocityController(
   ee_contact_frame_ = ee_contact_frame;
   k_d_ = k_d;
   k_r_ = k_r;
+  joint_torque_limit_ = joint_torque_limit;
 }
 
 // Callback for DeclareVectorInputPort. No return value.
@@ -57,41 +59,54 @@ void EndEffectorVelocityController::CalcOutputTorques(
   plant_.SetVelocities(plant_context.get(), q_dot);
 
   // Calculating the jacobian of the kuka arm
-  Eigen::MatrixXd frameSpatialVelocityJacobian(6, num_joints_);
-
-  plant_.CalcJacobianSpatialVelocity(*plant_context,
-      drake::multibody::JacobianWrtVariable::kV,
-      ee_joint_frame_, ee_contact_frame_, plant_.world_frame(),
-      plant_.world_frame(), &frameSpatialVelocityJacobian);
+  Eigen::MatrixXd J(6, num_joints_);
+  plant_.CalcJacobianSpatialVelocity(
+      *plant_context,drake::multibody::JacobianWrtVariable::kV, ee_joint_frame_, ee_contact_frame_, plant_.world_frame(), plant_.world_frame(),
+      &J);
+  Eigen::MatrixXd Jt = J.transpose();
 
   // Using the jacobian, calculating the actual current velocities of the arm
-  MatrixXd twist_actual = frameSpatialVelocityJacobian * q_dot;
+  MatrixXd twist_actual = J * q_dot;
 
   // Gains are placed in a diagonal matrix
   Eigen::DiagonalMatrix<double, 6> gains(6);
   gains.diagonal() << k_r_, k_r_, k_r_, k_d_, k_d_, k_d_;
 
   // Calculating the error
-  MatrixXd generalizedForces = gains * (twist_desired - twist_actual);
+  MatrixXd error = gains * (twist_desired - twist_actual);
+
+  VectorXd tm(num_joints_); //= Eigen::DiagonalMatrix<double>(7, 7);
+  tm << 1, 0.1, 1, 0.1, 1, 2, 1;
 
   // Multiplying J^t x force to get torque outputs
+  VectorXd torques(num_joints_);
   VectorXd commandedTorques(num_joints_);
-  commandedTorques = frameSpatialVelocityJacobian.transpose() * generalizedForces;
 
-  // Limit maximum commanded torques
-  double max_torque_limit = 3.0;
+  torques = J.transpose() * error;
+
+  // Calculating Mass Matrix
+  Eigen::MatrixXd H(plant_.num_positions(), plant_.num_positions());
+  plant_.CalcMassMatrixViaInverseDynamics(*plant_context.get(), &H);
+  Eigen::MatrixXd Hi = H.inverse();
+
+  double alpha = 0.9;
+
+  Eigen::MatrixXd T = (alpha * Eigen::MatrixXd::Identity(7, 7) + (1-alpha)*Hi).inverse();
+  Eigen::MatrixXd T2 = T * T;
+  commandedTorques =  Jt * (J * Hi * Jt).inverse() * (error);
+
+  // Limit maximum commanded velocities
   for (int i = 0; i < num_joints_; i++) {
-      if (commandedTorques(i, 0) > max_torque_limit) {
-          commandedTorques(i, 0) = max_torque_limit;
+      if (commandedTorques(i, 0) > joint_torque_limit_) {
+          commandedTorques(i, 0) = joint_torque_limit_;
           std::cout << "Warning: joint " << i << " commanded torque exceeded ";
-          std::cout << "given limit of " << max_torque_limit << std::endl;
-      } else if (commandedTorques(i, 0) < -max_torque_limit) {
-          commandedTorques(i, 0) = -max_torque_limit;
+          std::cout << "given limit of " << joint_torque_limit_ << std::endl;
+      } else if (commandedTorques(i, 0) < -joint_torque_limit_) {
+          commandedTorques(i, 0) = -joint_torque_limit_;
           std::cout << "Warning: joint " << i << " commanded torque exceeded ";
-          std::cout << "given limit of " << -max_torque_limit << std::endl;
+          std::cout << "given limit of " << -joint_torque_limit_ << std::endl;
       }
   }
-
 
   // Storing them in the output vector
   output->set_value(commandedTorques); // (7 x 6) * (6 x 1) = 7 x 1
