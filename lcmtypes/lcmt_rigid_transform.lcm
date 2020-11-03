@@ -1,0 +1,10 @@
+
+package dairlib;
+
+struct lcmt_rigid_transform
+{
+  int64_t utime;
+  
+  double position [3];
+  double rotation [4];
+}
