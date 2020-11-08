@@ -160,6 +160,18 @@ class TransformMessageReciever : public drake::systems::LeafSystem<double> {
 
 int do_main(int argc, char* argv[]) {
   
+
+  std::ifstream settings_file("examples/kuka_iiwa_arm/simulation_settings.json");
+  if (settings_file.is_open()) {
+    std::cout << "Json file opened successfully." << std::endl;
+  }
+  //Initializes joint_gains json object
+  json settings = json::parse(settings_file);
+
+  //Kp and 'Rotational' Kp
+  const std::string trajectory_file_path = settings["trajectory_file"];
+
+
   // Initialize Kuka model URDF-- from Drake kuka simulation files
   std::string kModelPath = "../drake/manipulation/models/iiwa_description"
                            "/iiwa7/iiwa7_no_collision.sdf";
@@ -204,7 +216,7 @@ int do_main(int argc, char* argv[]) {
   const std::string link_7 = "iiwa_link_7";
 
   //Processes Trajectories CSV file.
-  CsvVector waypoints("examples/kuka_iiwa_arm/config/ShortTrajectory.csv");
+  CsvVector waypoints(trajectory_file_path);
 
   lcm::LCM lcm_;
   if (!lcm_.good()) return 1;

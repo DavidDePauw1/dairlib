@@ -43,6 +43,18 @@ cc_binary(
 )
 
 cc_binary(
+    name = "manip_push_test",
+    srcs = ["manip_push_test.cc"],
+    data = glob(["config/**"]),
+    deps = [
+            ":json",
+            "@lcm",
+            "@drake//:drake_shared_library",
+            "//systems/controllers:manipuland_target_system",        
+    ]
+)
+
+cc_binary(
     name = "kuka_simulation",
     srcs = ["kuka_simulation.cc"],
     data = [

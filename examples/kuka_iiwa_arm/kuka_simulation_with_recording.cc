@@ -313,16 +313,16 @@ int DoMain() {
 //   ----------This should be in a if(FLAGS_props) block-----------
 //   add the object pose creator/publisher
 //   no specified publish time so that a message is output every time step
-//   auto object_pose_publisher = builder.AddSystem(
-//       drake::systems::lcm::LcmPublisherSystem::Make<dairlib::lcmt_rigid_transform>(
-//       "object_pose", lcm,.1));
+  auto object_pose_publisher = builder.AddSystem(
+      drake::systems::lcm::LcmPublisherSystem::Make<dairlib::lcmt_rigid_transform>(
+      "object_pose", lcm,.1));
   
-//   //creates transform messages for the first manipuland
-//   auto object_message_creator = builder.AddSystem<TransformMessageCreator>(world_plant->GetBodyIndices(objects_vector[0])[0]);
-//   builder.Connect(world_plant->get_body_poses_output_port(),
-//                   object_message_creator->get_input_port());
-//   builder.Connect(object_message_creator->get_output_port(),
-//                   object_pose_publisher->get_input_port());
+  //creates transform messages for the first manipuland
+  auto object_message_creator = builder.AddSystem<TransformMessageCreator>(world_plant->GetBodyIndices(objects_vector[0])[0]);
+  builder.Connect(world_plant->get_body_poses_output_port(),
+                  object_message_creator->get_input_port());
+  builder.Connect(object_message_creator->get_output_port(),
+                  object_pose_publisher->get_input_port());
 //   ------------------------------------------------
 
   drake::geometry::ConnectDrakeVisualizer(

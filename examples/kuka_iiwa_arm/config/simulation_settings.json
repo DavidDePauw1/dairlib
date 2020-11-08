@@ -16,5 +16,7 @@
             "max_angular_veloctiy" : 50.0,
             "joint_torque_limit" : 30.0
     },
-    "iiwa_q0": [0, 0.85707, -0.14844, -1.6309, 0.17992, 0.67515225, -0.132288]
+    "iiwa_q0": [0, 0.85707, -0.14844, -1.6309, 0.17992, 0.67515225, -0.132288],
+
+    "trajectory_file":"examples/kuka_iiwa_arm/config/ShortTrajectory.csv"
 }

@@ -160,3 +160,14 @@ cc_library(
         "@drake//:drake_shared_library",
     ],
 )
+
+cc_library(
+    name = "manipuland_target_system",
+    srcs = ["manipuland_target_system.cc"],
+    hdrs = ["manipuland_target_system.h"],
+    deps = [
+        "//common",
+        "//systems/framework:vector",
+        "@drake//:drake_shared_library",
+    ],
+)
