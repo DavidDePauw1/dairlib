@@ -29,6 +29,7 @@
 
 #include "systems/controllers/endeffector_velocity_controller.h"
 #include "systems/controllers/endeffector_position_controller.h"
+#include "systems/lcm_rigid_transform.h"
 #include <lcm/lcm-cpp.hpp>
 
 #include "json.hpp"
@@ -40,8 +41,10 @@
 
 #include <Eigen/Geometry>
 
+using dairlib::systems::TransformMessageReciever;
 
 using drake::manipulation::planner::ConstraintRelaxingIk;
+
 using IKWaypoint = drake::manipulation::planner::ConstraintRelaxingIk::IkCartesianWaypoint;
 
 using json = nlohmann::json;
@@ -123,34 +126,7 @@ class InitialPosHandler {
 };
 
 
-class TransformMessageReciever : public drake::systems::LeafSystem<double> {
-  public: 
-    DRAKE_NO_COPY_NO_MOVE_NO_ASSIGN(TransformMessageReciever)
-    std::string message;
-    TransformMessageReciever() {
-      // this->DeclareAbstractInputPort();
-      // //could add in rotation component (probably useful in t
-      
-      // this->DeclareVectorOutputPort("translation output",&TransformMessageReciever::printValue);
-      // this->DeclareVectorOutputPort("rotation output", )
-      // this->DeclareAbstractOutputPort()
-    }
 
-    void translationOutput(const drake::systems::Context<double>& context, systems::BasicVector<double>* value) const 
-    {
-
-
-    }
-
-    void rotationOutput(const drake::systems::Context<double>& context, systems::BasicVector<double>* value) const 
-    {
-
-    }
-
-    void transformOutput(const drake::systems::Context<double>& context, drake::math::RigidTransform<double>* value) const {
-      
-    }
-};
 
 
 // This function creates a controller for a Kuka LBR Iiwa arm by connecting an

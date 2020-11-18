@@ -39,6 +39,8 @@ cc_binary(
             "@drake//:drake_shared_library",
             "//systems/controllers:endeffector_velocity_controller",
             "//systems/controllers:endeffector_position_controller",
+            "//systems:lcm_rigid_transform"      
+
     ]
 )
 
@@ -50,7 +52,23 @@ cc_binary(
             ":json",
             "@lcm",
             "@drake//:drake_shared_library",
-            "//systems/controllers:manipuland_target_system",        
+            "//systems/controllers:IK_target_tracking_system",  
+            "//systems:lcm_rigid_transform"      
+    ]
+)
+
+cc_binary(
+    name = "manip_push_test_Jac",
+    srcs = ["manip_push_test_Jac.cc"],
+    data = glob(["config/**"]),
+    deps = [
+            ":json",
+            "@lcm",
+            "@drake//:drake_shared_library",
+            "//systems/controllers:Jac_target_tracking_system", 
+            "//systems/controllers:endeffector_velocity_controller",
+            "//systems/controllers:endeffector_position_controller", 
+            "//systems:lcm_rigid_transform"      
     ]
 )
 
@@ -86,6 +104,7 @@ cc_binary(
         "@gflags",
         "@lcm",
         "//lcmtypes:lcmt_robot",
+        "//systems:lcm_rigid_transform"
     ],
 )
 

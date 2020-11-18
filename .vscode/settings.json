@@ -79,6 +79,8 @@
         "typeinfo": "cpp",
         "valarray": "cpp",
         "variant": "cpp",
-        "charconv": "cpp"
+        "charconv": "cpp",
+        "core": "cpp",
+        "autodiff": "cpp"
     }
 }

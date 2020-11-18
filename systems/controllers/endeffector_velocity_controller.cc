@@ -93,7 +93,66 @@ void EndEffectorVelocityController::CalcOutputTorques(
 
   Eigen::MatrixXd T = (alpha * Eigen::MatrixXd::Identity(7, 7) + (1-alpha)*Hi).inverse();
   Eigen::MatrixXd T2 = T * T;
-  commandedTorques =  Jt * (J * Hi * Jt).inverse() * (error);
+  commandedTorques =  Hi*Jt * (J * Hi * Jt).inverse() * (error);
+
+//------------testing-------------
+//   std::cout << "sanity test" << std::endl;
+  Eigen::MatrixXd test_vel(6,1);
+  test_vel << 0.05,0,0,0.01,0,0;
+
+  VectorXd jointLimits(7);
+  jointLimits << 170 - 5, 120 - 5, 170 - 5, 120 - 5, 170 - 5, 120 - 5, 175 - 5;
+  jointLimits = jointLimits * 3.14159265358 / 180;
+//   std::cout << "test_vel: " << test_vel <<std::endl;
+//   test_vel = test_vel.transpose();
+
+//   std::cout << "test_vel.T: " << test_vel << std::endl;
+  
+//   std::cout << "q: " << q << std::endl;
+
+//   std::cout << "q_dot: " << q_dot << std::endl;
+
+
+  Eigen::MatrixXd pseudo_inverse = Jt*(J*Jt).inverse();
+  Eigen::MatrixXd joint_speeds = pseudo_inverse * (twist_desired- twist_actual);
+
+//   std::cout << "Jacobian determinate: " << (Jt*(J*Jt)).determinant() << std::endl;
+
+  
+  auto denom = (q.array()*(1/jointLimits.array())).matrix().norm() * (4*jointLimits.array()*jointLimits.array());
+
+  auto max_joint_limit_grad = (q.array() * (1/denom)).matrix() +.1*q_dot;
+  
+
+  // std::cout << "max joint limit grad: " << max_joint_limit_grad << std::endl;
+
+  auto null_space = Eigen::MatrixXd::Identity(7,7) - pseudo_inverse*J;
+
+
+  double null_space_grad_gain = 2;
+
+  Eigen::DiagonalMatrix<double, 7> joint_gains(7);
+  joint_gains.diagonal() << 50,50,50,50,100,100,50;
+  
+  commandedTorques =  joint_gains*H*(joint_speeds - (null_space_grad_gain*null_space*max_joint_limit_grad));
+
+//   std::cout << "twist desired: " << twist_desired << std::endl;
+
+//   commandedTorques =  Hi*Jt * (J * Hi * Jt).inverse() * (test_vel);
+
+
+
+  for (int i = 0; i < 7; i++) {
+    if (abs(q(i)) > jointLimits(i)) {
+        std::cout << "joint limit exceeded on joint " << i+1 << std::endl;
+        // commandedTorques(i,1) = 
+        
+        // std::cout << "quitting..." << std::endl;
+        // exit(0);
+    }
+  }
+
+  
 
   // Limit maximum commanded velocities
   for (int i = 0; i < num_joints_; i++) {
@@ -108,7 +167,20 @@ void EndEffectorVelocityController::CalcOutputTorques(
       }
   }
 
+
+//   std::cout << "commandedTorques: " << commandedTorques << std::endl;
+
   // Storing them in the output vector
+
+  
+
+  if(q.norm() == 0) {
+    Eigen::VectorXd zero(7);
+    zero << 0,0,0,0,0,0,0;
+    commandedTorques = zero;
+
+  }
+
   output->set_value(commandedTorques); // (7 x 6) * (6 x 1) = 7 x 1
 
 }

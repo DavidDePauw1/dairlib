@@ -30,11 +30,11 @@
       <collision name='ee_collision'>
         <laser_retro>0</laser_retro>
         <max_contacts>10</max_contacts>
-        <pose frame=''>0 0 0.1016 0 -0 0</pose>
+        <pose frame=''>0 0 0.1 0 -0 0</pose>
         <geometry>
             <cylinder>
                 <radius>0.0256</radius>
-                <length>0.03</length>
+                <length>0.1016</length>
             </cylinder>
         </geometry>
       </collision>

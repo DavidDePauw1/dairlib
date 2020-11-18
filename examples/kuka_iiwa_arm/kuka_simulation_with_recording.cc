@@ -38,7 +38,8 @@
 #include "drake/systems/primitives/demultiplexer.h"
 #include "drake/systems/primitives/discrete_derivative.h"
 
-#include "dairlib/lcmt_rigid_transform.hpp"
+#include "systems/lcm_rigid_transform.h"
+
 
 using json = nlohmann::json;
 
@@ -62,50 +63,10 @@ using drake::multibody::SpatialInertia;
 using drake::systems::StateInterpolatorWithDiscreteDerivative;
 using drake::multibody::BodyIndex;
 
+using dairlib::systems::TransformMessageCreator;
+
 DEFINE_bool(props, true, "Include props (table, pushable items, etc.)");
 DEFINE_bool(ee, true, "Include End-Effector in Model");
-
-
-class TransformMessageCreator : public drake::systems::LeafSystem<double> {
-  public: 
-    DRAKE_NO_COPY_NO_MOVE_NO_ASSIGN(TransformMessageCreator)
-
-    const BodyIndex index;
-     
-    TransformMessageCreator(const BodyIndex modelIndex ):index(modelIndex){
-      //could add in rotation component (probably useful in t
-      
-      &this->DeclareAbstractInputPort("body_poses", drake::Value<std::vector<RigidTransform<double>>>());
-                            
-
-      this->DeclareAbstractOutputPort("message_output",&TransformMessageCreator::createTransformMessage);
-    }
-
-    void createTransformMessage(const drake::systems::Context<double>& context, dairlib::lcmt_rigid_transform* message) const {
-      //get the current pose of the object in the world frame
-      // this is likely the wrong context, should need context for the multibody, not this leafsystem
-      // 
-      const auto& world_pose = &this->get_input_port().Eval<std::vector<RigidTransform<double>>>(context)[index];
-      
-    //   //may also add in contact forces for logging in the future
-      
-      message->utime = context.get_time() * 1e6;
-
-      auto trans = world_pose->translation();
-
-      message->position[0] = trans[0];
-      message->position[1] = trans[1];
-      message->position[2] = trans[2];
-
-      auto rot = world_pose->rotation().ToQuaternionAsVector4();
-
-      message->rotation[0] = rot[0];
-      message->rotation[1] = rot[1];
-      message->rotation[2] = rot[2];
-      message->rotation[3] = rot[3];
-          
-    }
-};
 
 
 int DoMain() {
@@ -172,7 +133,7 @@ int DoMain() {
   if (FLAGS_props) {
     // Add Table to Simulation
     const double dx_table_center_to_robot_base = 0.6257;
-    const double dz_table_top_robot_base = 0.1;
+    const double dz_table_top_robot_base = 0.0;
     const std::string sdf_path = drake::FindResourceOrThrow(
         "drake/examples/manipulation_station/models/amazon_table_simplified.sdf");
 
@@ -246,7 +207,8 @@ int DoMain() {
   // Torque Controller-- includes virtual springs and damping.
   VectorXd stiffness, damping_ratio;
   stiffness.resize(num_iiwa_positions);
-  stiffness << 40, 40, 40, 40, 40, 40, 40;
+//   stiffness << 40, 40, 40, 40, 40, 40, 40;
+  stiffness << 0, 0, 0, 0, 0, 0, 0;
 
   // A dimensionless damping ratio. See KukaTorqueController for details.
   damping_ratio.resize(num_iiwa_positions);
@@ -315,7 +277,7 @@ int DoMain() {
 //   no specified publish time so that a message is output every time step
   auto object_pose_publisher = builder.AddSystem(
       drake::systems::lcm::LcmPublisherSystem::Make<dairlib::lcmt_rigid_transform>(
-      "object_pose", lcm,.1));
+      "manip_pose", lcm, .02));
   
   //creates transform messages for the first manipuland
   auto object_message_creator = builder.AddSystem<TransformMessageCreator>(world_plant->GetBodyIndices(objects_vector[0])[0]);

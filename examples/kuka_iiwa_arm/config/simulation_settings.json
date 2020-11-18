@@ -1,7 +1,8 @@
 {
     "objects": [
-        ["sphere", [0.6, 0.2, 0.5], "drake/examples/manipulation_station/models/sphere.sdf"],
-        ["block", [0.65, -0.2, 0.5], "drake/examples/manipulation_station/models/061_foam_brick.sdf"]
+        ["sphere",[0.5, 0.1, 0.1] , "drake/examples/manipulation_station/models/sphere.sdf"],
+        ["block",[0.5, -0.4, 0.5] , "drake/examples/manipulation_station/models/061_foam_brick.sdf"]
+        
     ],
     "kuka_gains":
         {

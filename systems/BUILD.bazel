@@ -16,6 +16,20 @@ cc_library(
 )
 
 cc_library(
+    name = "lcm_rigid_transform",
+    hdrs = [
+        "lcm_rigid_transform.h",
+    ],
+    deps = [
+        "//lcmtypes:lcmt_robot",
+        "//multibody:utils",
+        "//systems/framework:vector",
+        "@drake//:drake_shared_library",
+        "@lcm",
+    ],
+)
+
+cc_library(
     name = "vector_scope",
     srcs = ["vector_scope.cc"],
     hdrs = ["vector_scope.h"],

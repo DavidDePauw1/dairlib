@@ -171,3 +171,27 @@ cc_library(
         "@drake//:drake_shared_library",
     ],
 )
+
+cc_library(
+    name = "IK_target_tracking_system",
+    srcs = ["IK_target_tracking_system.cc"],
+    hdrs = ["IK_target_tracking_system.h"],
+    deps = [
+        "//common",
+        "//systems/framework:vector",
+        "@drake//:drake_shared_library",
+        "//systems/controllers:manipuland_target_system"
+    ],
+)
+
+cc_library(
+    name = "Jac_target_tracking_system",
+    srcs = ["Jac_target_tracking_system.cc"],
+    hdrs = ["Jac_target_tracking_system.h"],
+    deps = [
+        "//common",
+        "//systems/framework:vector",
+        "@drake//:drake_shared_library",
+        "//systems/controllers:manipuland_target_system"
+    ],
+)

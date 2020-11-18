@@ -46,16 +46,7 @@ void EndEffectorPositionController::CalcOutputTwist(
   VectorX<double> orientation_desired = this->EvalVectorInput(context,
 	  endpoint_orientation_commanded_port_)->CopyToVector();
 
-  VectorXd jointLimits(7);
-	jointLimits << 170 - 5, 120 - 5, 170 - 5, 120 - 5, 170 - 5, 120 - 5, 175 - 5;
-	jointLimits = jointLimits * 3.14159265358 / 180;
-  for (int i = 0; i < 7; i++) {
-		if (abs(q_actual(i)) > jointLimits(i)) {
-			std::cout << "joint limit exceeded on joint " << i+1 << std::endl;
-            std::cout << "quitting..." << std::endl;
-			exit(0);
-	  }
-	}
+
 
   Eigen::Vector3d x_actual;
   const std::unique_ptr<Context<double>> plant_context =
@@ -74,7 +65,7 @@ void EndEffectorPositionController::CalcOutputTwist(
   Eigen::Quaternion<double> quat_n_a_des = Eigen::Quaternion<double>(
 	  orientation_desired(0), orientation_desired(1), orientation_desired(2),
 	  orientation_desired(3));
-
+  // Eigen::Quaternion<double> quat_n_a_des = Eigen::Quaternion<double>(0, 0, 1, 0);
   // Quaternion for rotation from end effector attitude
   // to desired end effector attitude.
   Eigen::Quaternion<double> quat_a_a_des =
@@ -85,7 +76,13 @@ void EndEffectorPositionController::CalcOutputTwist(
       Eigen::AngleAxis<double>(quat_a_a_des);
   MatrixXd axis = angleaxis_a_a_des.axis();
   MatrixXd omega = k_omega_ * axis * angleaxis_a_a_des.angle();
-  std::cout << angleaxis_a_a_des.angle() << std::endl;
+  // std::cout << "desired angle from position controller: " << Eigen::AngleAxis<double>(quat_n_a_des).axis() << std::endl;
+//   std::cout << "angle error from position controller: " << angleaxis_a_a_des.angle() << std::endl;
+//   std::cout << "position error from position controller: " << x_desired - x_actual << std::endl;
+//   std::cout << "velocity desired from position controller: " << xdot_desired << std::endl;
+
+
+
 
   // Transforming angular velocity from joint frame to world frame
   VectorXd omegaWF = plant_.CalcRelativeTransform(

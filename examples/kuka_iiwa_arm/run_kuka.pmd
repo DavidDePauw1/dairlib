@@ -36,6 +36,16 @@ group "1.simulated-robot" {
         host = "localhost";
     }
 
+    cmd "3b.manip_IK_push_demo" {
+        exec = "bazel-bin/examples/kuka_iiwa_arm/manip_push_test";
+        host = "localhost";
+    }
+
+    cmd "3b.manip_Jac_push_demo" {
+        exec = "bazel-bin/examples/kuka_iiwa_arm/manip_push_test_Jac";
+        host = "localhost";
+    }
+
 
     cmd "4.iiwa_oscillate" {
         exec = "bazel-bin/examples/kuka_iiwa_arm/iiwa_oscillate";
