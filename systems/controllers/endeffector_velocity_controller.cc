@@ -6,28 +6,34 @@ namespace systems{
 EndEffectorVelocityController::EndEffectorVelocityController(
     const MultibodyPlant<double>& plant, std::string ee_frame_name,
     Eigen::Vector3d ee_contact_frame, double k_d, double k_r,
-    double joint_torque_limit) : plant_(plant),
-    num_joints_(plant_.num_positions()),
-    ee_joint_frame_(plant_.GetFrameByName(ee_frame_name)){
+    double joint_torque_limit,
+    Eigen::DiagonalMatrix<double, 7> joint_torque_mult,
+    double null_space_grad_gain,
+    double joint_lim_grad_d ) : _plant(plant),
+    _num_joints(_plant.num_positions()),
+    _ee_joint_frame(_plant.GetFrameByName(ee_frame_name)),
+    _joint_torque_mult(joint_torque_mult),
+    _null_space_grad_gain(null_space_grad_gain),
+    _joint_lim_grad_d(joint_lim_grad_d){
 
   // Set up this block's input and output ports
   // Input port values will be accessed via EvalVectorInput() later
-  joint_position_measured_port_ = this->DeclareVectorInputPort(
-      "joint_position_measured", BasicVector<double>(num_joints_)).get_index();
-  joint_velocity_measured_port_ = this->DeclareVectorInputPort(
-      "joint_velocity_measured", BasicVector<double>(num_joints_)).get_index();
-  endpoint_twist_commanded_port_ = this->DeclareVectorInputPort(
+  _joint_position_measured_port = this->DeclareVectorInputPort(
+      "joint_position_measured", BasicVector<double>(_num_joints)).get_index();
+  _joint_velocity_measured_port = this->DeclareVectorInputPort(
+      "joint_velocity_measured", BasicVector<double>(_num_joints)).get_index();
+  _endpoint_twist_commanded_port = this->DeclareVectorInputPort(
       "endpoint_twist_commanded", BasicVector<double>(6)).get_index();
 
   // Note that this function contains a pointer to the callback function below.
-  endpoint_torque_output_port_ = this->DeclareVectorOutputPort(
-      BasicVector<double>(num_joints_),
+  _endpoint_torque_output_port = this->DeclareVectorOutputPort(
+      BasicVector<double>(_num_joints),
       &EndEffectorVelocityController::CalcOutputTorques).get_index();
 
-  ee_contact_frame_ = ee_contact_frame;
-  k_d_ = k_d;
-  k_r_ = k_r;
-  joint_torque_limit_ = joint_torque_limit;
+  _ee_contact_frame = ee_contact_frame;
+  _k_d = k_d;
+  _k_r = k_r;
+  _joint_torque_limit = joint_torque_limit;
 }
 
 // Callback for DeclareVectorInputPort. No return value.
@@ -40,65 +46,58 @@ void EndEffectorVelocityController::CalcOutputTorques(
   // from the vector input ports
   const BasicVector<double>* q_timestamped =
       (BasicVector<double>*) this->EvalVectorInput(
-          context, joint_position_measured_port_);
+          context, _joint_position_measured_port);
   auto q = q_timestamped->get_value();
 
   const BasicVector<double>* q_dot_timestamped =
       (BasicVector<double>*) this->EvalVectorInput(
-          context, joint_velocity_measured_port_);
+          context, _joint_velocity_measured_port);
   auto q_dot = q_dot_timestamped->get_value();
 
   const BasicVector<double>* twist_desired_timestamped =
       (BasicVector<double>*) this->EvalVectorInput(
-          context, endpoint_twist_commanded_port_);
+          context, _endpoint_twist_commanded_port);
   auto twist_desired = twist_desired_timestamped->get_value();
 
   const std::unique_ptr<Context<double>> plant_context =
-      plant_.CreateDefaultContext();
-  plant_.SetPositions(plant_context.get(), q);
-  plant_.SetVelocities(plant_context.get(), q_dot);
+      _plant.CreateDefaultContext();
+  _plant.SetPositions(plant_context.get(), q);
+  _plant.SetVelocities(plant_context.get(), q_dot);
 
   // Calculating the jacobian of the kuka arm
-  Eigen::MatrixXd J(6, num_joints_);
-  plant_.CalcJacobianSpatialVelocity(
-      *plant_context,drake::multibody::JacobianWrtVariable::kV, ee_joint_frame_, ee_contact_frame_, plant_.world_frame(), plant_.world_frame(),
+  Eigen::MatrixXd J(6, _num_joints);
+  _plant.CalcJacobianSpatialVelocity(
+      *plant_context,drake::multibody::JacobianWrtVariable::kV, _ee_joint_frame, _ee_contact_frame, _plant.world_frame(), _plant.world_frame(),
       &J);
   Eigen::MatrixXd Jt = J.transpose();
 
   // Using the jacobian, calculating the actual current velocities of the arm
   MatrixXd twist_actual = J * q_dot;
 
-  // Gains are placed in a diagonal matrix
-  Eigen::DiagonalMatrix<double, 6> gains(6);
-  gains.diagonal() << k_r_, k_r_, k_r_, k_d_, k_d_, k_d_;
+
 
   // Calculating the error
+  Eigen::DiagonalMatrix<double, 6> gains(6);
+  gains.diagonal() << _k_r, _k_r, _k_r, _k_d, _k_d, _k_d;
+
   MatrixXd error = gains * (twist_desired - twist_actual);
 
-  VectorXd tm(num_joints_); //= Eigen::DiagonalMatrix<double>(7, 7);
+
+  VectorXd tm(_num_joints); //= Eigen::DiagonalMatrix<double>(7, 7);
   tm << 1, 0.1, 1, 0.1, 1, 2, 1;
 
   // Multiplying J^t x force to get torque outputs
-  VectorXd torques(num_joints_);
-  VectorXd commandedTorques(num_joints_);
+  VectorXd torques(_num_joints);
+  VectorXd commandedTorques(_num_joints);
 
   torques = J.transpose() * error;
 
   // Calculating Mass Matrix
-  Eigen::MatrixXd H(plant_.num_positions(), plant_.num_positions());
-  plant_.CalcMassMatrixViaInverseDynamics(*plant_context.get(), &H);
-  Eigen::MatrixXd Hi = H.inverse();
+  Eigen::MatrixXd H(_num_joints, _num_joints);
+  _plant.CalcMassMatrixViaInverseDynamics(*plant_context.get(), &H);
 
-  double alpha = 0.9;
-
-  Eigen::MatrixXd T = (alpha * Eigen::MatrixXd::Identity(7, 7) + (1-alpha)*Hi).inverse();
-  Eigen::MatrixXd T2 = T * T;
-  commandedTorques =  Hi*Jt * (J * Hi * Jt).inverse() * (error);
 
 //------------testing-------------
-//   std::cout << "sanity test" << std::endl;
-  Eigen::MatrixXd test_vel(6,1);
-  test_vel << 0.05,0,0,0.01,0,0;
 
   VectorXd jointLimits(7);
   jointLimits << 170 - 5, 120 - 5, 170 - 5, 120 - 5, 170 - 5, 120 - 5, 175 - 5;
@@ -113,28 +112,37 @@ void EndEffectorVelocityController::CalcOutputTorques(
 //   std::cout << "q_dot: " << q_dot << std::endl;
 
 
+  // Eigen::DiagonalMatrix<double, 7> joint_gains(7);
+  // joint_gains.diagonal() << 50,50,50,50,100,100,50;
+
+  // double null_space_grad_gain = 2;
+
+  // double joint_limit_gradient_derivative_gain = .1;
+
+    // Gains are placed in a diagonal matrix
+
+
+
+
   Eigen::MatrixXd pseudo_inverse = Jt*(J*Jt).inverse();
-  Eigen::MatrixXd joint_speeds = pseudo_inverse * (twist_desired- twist_actual);
+  Eigen::MatrixXd joint_speeds = pseudo_inverse * (error);
 
 //   std::cout << "Jacobian determinate: " << (Jt*(J*Jt)).determinant() << std::endl;
 
   
   auto denom = (q.array()*(1/jointLimits.array())).matrix().norm() * (4*jointLimits.array()*jointLimits.array());
 
-  auto max_joint_limit_grad = (q.array() * (1/denom)).matrix() +.1*q_dot;
+  auto max_joint_limit_grad = (q.array() * (1/denom)).matrix() + _joint_lim_grad_d*q_dot;
   
 
   // std::cout << "max joint limit grad: " << max_joint_limit_grad << std::endl;
 
   auto null_space = Eigen::MatrixXd::Identity(7,7) - pseudo_inverse*J;
 
-
-  double null_space_grad_gain = 2;
-
-  Eigen::DiagonalMatrix<double, 7> joint_gains(7);
-  joint_gains.diagonal() << 50,50,50,50,100,100,50;
   
-  commandedTorques =  joint_gains*H*(joint_speeds - (null_space_grad_gain*null_space*max_joint_limit_grad));
+  commandedTorques =  _joint_torque_mult*H*(joint_speeds - (_null_space_grad_gain*null_space*max_joint_limit_grad));
+
+  std::cout << "commandedTorques: " << commandedTorques << std::endl;
 
 //   std::cout << "twist desired: " << twist_desired << std::endl;
 
@@ -155,15 +163,15 @@ void EndEffectorVelocityController::CalcOutputTorques(
   
 
   // Limit maximum commanded velocities
-  for (int i = 0; i < num_joints_; i++) {
-      if (commandedTorques(i, 0) > joint_torque_limit_) {
-          commandedTorques(i, 0) = joint_torque_limit_;
+  for (int i = 0; i < _num_joints; i++) {
+      if (commandedTorques(i, 0) > _joint_torque_limit) {
+          commandedTorques(i, 0) = _joint_torque_limit;
           std::cout << "Warning: joint " << i << " commanded torque exceeded ";
-          std::cout << "given limit of " << joint_torque_limit_ << std::endl;
-      } else if (commandedTorques(i, 0) < -joint_torque_limit_) {
-          commandedTorques(i, 0) = -joint_torque_limit_;
+          std::cout << "given limit of " << _joint_torque_limit << std::endl;
+      } else if (commandedTorques(i, 0) < -_joint_torque_limit) {
+          commandedTorques(i, 0) = -_joint_torque_limit;
           std::cout << "Warning: joint " << i << " commanded torque exceeded ";
-          std::cout << "given limit of " << -joint_torque_limit_ << std::endl;
+          std::cout << "given limit of " << -_joint_torque_limit << std::endl;
       }
   }
 

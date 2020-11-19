@@ -32,20 +32,23 @@ class EndEffectorVelocityController : public LeafSystem<double> {
                                   std::string ee_frame_name,
                                   Eigen::Vector3d ee_contact_frame,
                                   double k_d, double k_r,
-                                  double joint_torque_limit);
+                                  double joint_torque_limit,
+                                  Eigen::DiagonalMatrix<double, 7> joint_torque_mult,
+                                  double null_space_grad_gain,
+                                  double joint_lim_grad_d );
 
     // Getter methods for each of the individual input/output ports.
     const drake::systems::InputPort<double>& get_joint_pos_input_port() const {
-      return this->get_input_port(joint_position_measured_port_);
+      return this->get_input_port(_joint_position_measured_port);
     }
     const drake::systems::InputPort<double>& get_joint_vel_input_port() const {
-      return this->get_input_port(joint_velocity_measured_port_);
+      return this->get_input_port(_joint_velocity_measured_port);
     }
     const drake::systems::InputPort<double>& get_endpoint_twist_input_port() const {
-      return this->get_input_port(endpoint_twist_commanded_port_);
+      return this->get_input_port(_endpoint_twist_commanded_port);
     }
     const drake::systems::OutputPort<double>& get_endpoint_torque_output_port() const{
-      return this->get_output_port(endpoint_torque_output_port_);
+      return this->get_output_port(_endpoint_torque_output_port);
     }
 
   private:
@@ -55,17 +58,27 @@ class EndEffectorVelocityController : public LeafSystem<double> {
     void CalcOutputTorques(const Context<double>& context,
                          BasicVector<double>* output) const;
 
-    const MultibodyPlant<double>& plant_;
-    int num_joints_;
-    const Frame<double>& ee_joint_frame_;
-    Eigen::Vector3d ee_contact_frame_;
-    int joint_position_measured_port_;
-    int joint_velocity_measured_port_;
-    int endpoint_twist_commanded_port_;
-    int endpoint_torque_output_port_;
-    double k_d_;
-    double k_r_;
-    double joint_torque_limit_;
+    const MultibodyPlant<double>& _plant;
+    int _num_joints;
+    const Frame<double>& _ee_joint_frame;
+    
+
+    //ports
+    int _joint_position_measured_port;
+    int _joint_velocity_measured_port;
+    int _endpoint_twist_commanded_port;
+    int _endpoint_torque_output_port;
+
+
+    //controller params
+    Eigen::Vector3d _ee_contact_frame;
+    double _k_d;
+    double _k_r;
+    double _joint_torque_limit;
+    Eigen::DiagonalMatrix<double, 7> _joint_torque_mult;
+    double _null_space_grad_gain;
+    double _joint_lim_grad_d;
+
 };
 
 
