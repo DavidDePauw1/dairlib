@@ -50,6 +50,9 @@ class EndEffectorVelocityController : public LeafSystem<double> {
     const drake::systems::OutputPort<double>& get_endpoint_torque_output_port() const{
       return this->get_output_port(_endpoint_torque_output_port);
     }
+    const drake::systems::OutputPort<double>& get_failure_output_port() const {
+     return this->get_output_port(failure_output_port_);
+   }
 
   private:
     // The callback called when declaring the output port of the system.
@@ -57,6 +60,9 @@ class EndEffectorVelocityController : public LeafSystem<double> {
     // Think a simulink system.
     void CalcOutputTorques(const Context<double>& context,
                          BasicVector<double>* output) const;
+    
+    void failureCalc(const Context<double> &context,
+                      bool* failure) const;
 
     const MultibodyPlant<double>& _plant;
     int _num_joints;
@@ -68,6 +74,8 @@ class EndEffectorVelocityController : public LeafSystem<double> {
     int _joint_velocity_measured_port;
     int _endpoint_twist_commanded_port;
     int _endpoint_torque_output_port;
+    int failure_output_port_;
+
 
 
     //controller params
@@ -78,6 +86,8 @@ class EndEffectorVelocityController : public LeafSystem<double> {
     Eigen::DiagonalMatrix<double, 7> _joint_torque_mult;
     double _null_space_grad_gain;
     double _joint_lim_grad_d;
+
+    mutable bool is_failing = false;
 
 };
 

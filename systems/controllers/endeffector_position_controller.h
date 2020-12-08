@@ -36,7 +36,7 @@ class EndEffectorPositionController : public LeafSystem<double> {
                                  std::string ee_frame_name,
                                  Eigen::Vector3d ee_contact_frame,
                                  double k_p, double k_omega,
-                                 double max_linear_vel, double max_angular_vel);
+                                 double max_linear_vel, double max_angular_vel, double pos_tolerance, double rot_tolerance);
 
    // Getter methods for each of the individual input/output ports.
    const drake::systems::InputPort<double>& get_joint_pos_input_port() const {
@@ -55,11 +55,18 @@ class EndEffectorPositionController : public LeafSystem<double> {
      return this->get_output_port(endpoint_twist_cmd_output_port_);
    }
 
+   const drake::systems::OutputPort<double>& get_failure_output_port() const {
+     return this->get_output_port(failure_output_port_);
+   }
+
  private:
    // Callback method called when declaring output port of the system.
    // Twist combines linear and angular velocities.
    void CalcOutputTwist(const Context<double> &context,
                         BasicVector<double>* output) const;
+
+    void failureCalc(const Context<double> &context,
+                    bool* failure) const;
 
     Eigen::VectorXd clampToNorm(Eigen::VectorXd v, double norm, std::string msg) const;
 
@@ -67,15 +74,25 @@ class EndEffectorPositionController : public LeafSystem<double> {
    const Frame<double>& plant_world_frame_;
    Eigen::Vector3d ee_contact_frame_;
    const Frame<double>& ee_joint_frame_;
+
+
    double k_p_;
    double k_omega_;
    double max_linear_vel_;
    double max_angular_vel_;
+   double pos_tolerance_;
+   double rot_tolerance_;
+
    int joint_position_measured_port_;
    int endpoint_position_commanded_port_;
    int endpoint_velocity_commanded_port_;
    int endpoint_orientation_commanded_port_;
    int endpoint_twist_cmd_output_port_;
+   int failure_output_port_;
+
+   
+
+
 
 };
 

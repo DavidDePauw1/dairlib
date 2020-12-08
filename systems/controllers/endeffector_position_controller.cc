@@ -7,28 +7,67 @@ namespace systems{
 EndEffectorPositionController::EndEffectorPositionController(
 	const MultibodyPlant<double>& plant, std::string ee_frame_name,
 	Eigen::Vector3d ee_contact_frame, double k_p, double k_omega,
-    double max_linear_vel, double max_angular_vel)
+    double max_linear_vel, double max_angular_vel, double pos_tolerance = 0, double rot_tolerance = 0)
 	: plant_(plant), plant_world_frame_(plant_.world_frame()),
 	ee_contact_frame_(ee_contact_frame),
-	ee_joint_frame_(plant_.GetFrameByName(ee_frame_name)){
+	ee_joint_frame_(plant_.GetFrameByName(ee_frame_name)), pos_tolerance_(pos_tolerance), rot_tolerance_(rot_tolerance){
 
   // Set up this block's input and output ports
   // Input port values will be accessed via EvalVectorInput() later
-  joint_position_measured_port_ = this->DeclareVectorInputPort(
+    joint_position_measured_port_ = this->DeclareVectorInputPort(
 	  "joint_position_measured", BasicVector<double>(plant_.num_positions())).get_index();
-  endpoint_position_commanded_port_ = this->DeclareVectorInputPort(
+    endpoint_position_commanded_port_ = this->DeclareVectorInputPort(
 	  "endpoint_position_commanded", BasicVector<double>(3)).get_index();
-  endpoint_velocity_commanded_port_ = this->DeclareVectorInputPort(
+    endpoint_velocity_commanded_port_ = this->DeclareVectorInputPort(
       "endpoint_velocity_commanded", BasicVector<double>(3)).get_index();
-  endpoint_orientation_commanded_port_ = this->DeclareVectorInputPort(
+    endpoint_orientation_commanded_port_ = this->DeclareVectorInputPort(
 	  "endpoint_orientation_commanded", BasicVector<double>(4)).get_index();
-  endpoint_twist_cmd_output_port_ = this->DeclareVectorOutputPort(
+    endpoint_twist_cmd_output_port_ = this->DeclareVectorOutputPort(
 	  BasicVector<double>(6), &EndEffectorPositionController::CalcOutputTwist).get_index();
+
+    failure_output_port_ = this->DeclareAbstractOutputPort(&EndEffectorPositionController::failureCalc).get_index();
 
   k_p_ = k_p;
   k_omega_ = k_omega;
   max_linear_vel_ = max_linear_vel;
   max_angular_vel_ = max_angular_vel;
+}
+
+void EndEffectorPositionController::failureCalc(const Context<double> &context, bool* failure) const{
+
+    VectorX<double> q_actual = this->EvalVectorInput(context,joint_position_measured_port_)->CopyToVector();
+
+    VectorX<double> desired_translation = this->EvalVectorInput(context, endpoint_position_commanded_port_)->CopyToVector();
+
+    VectorX<double> xdot_desired = this->EvalVectorInput(context, endpoint_velocity_commanded_port_)->CopyToVector();
+
+    VectorX<double> orientation_desired = this->EvalVectorInput(context, endpoint_orientation_commanded_port_)->CopyToVector();
+
+
+    const std::unique_ptr<Context<double>> plant_context =
+        plant_.CreateDefaultContext();
+
+    plant_.SetPositions(plant_context.get(), q_actual);
+
+  // Quaternion for rotation from base to end effector
+    auto ee_pose = plant_.CalcRelativeTransform(
+	    *plant_context, plant_world_frame_, ee_joint_frame_);
+
+    auto ee_rotation = ee_pose.rotation().ToQuaternion();
+    auto ee_translation = ee_pose.translation();
+
+    Eigen::Quaternion<double> desired_rotation = Eigen::Quaternion<double>(orientation_desired(0), orientation_desired(1), orientation_desired(2), orientation_desired(3));
+
+    Eigen::Quaternion<double> rot_diff_quat = ee_rotation.conjugate() * (desired_rotation);
+
+    Eigen::AngleAxis<double> rot_diff_aa = Eigen::AngleAxis<double>(rot_diff_quat);
+
+    *failure = (ee_pose.translation() - ee_translation).norm() > pos_tolerance_ || rot_diff_aa.angle() > rot_tolerance_;
+
+    if(*failure){
+      std::cout << "position error based failure" << std::endl;
+    } 
+
 }
 
 void EndEffectorPositionController::CalcOutputTwist(
@@ -76,11 +115,6 @@ void EndEffectorPositionController::CalcOutputTwist(
       Eigen::AngleAxis<double>(quat_a_a_des);
   MatrixXd axis = angleaxis_a_a_des.axis();
   MatrixXd omega = k_omega_ * axis * angleaxis_a_a_des.angle();
-  // std::cout << "desired angle from position controller: " << Eigen::AngleAxis<double>(quat_n_a_des).axis() << std::endl;
-//   std::cout << "angle error from position controller: " << angleaxis_a_a_des.angle() << std::endl;
-//   std::cout << "position error from position controller: " << x_desired - x_actual << std::endl;
-//   std::cout << "velocity desired from position controller: " << xdot_desired << std::endl;
-
 
 
 

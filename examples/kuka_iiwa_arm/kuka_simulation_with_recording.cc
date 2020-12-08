@@ -37,6 +37,7 @@
 #include "drake/systems/lcm/lcm_subscriber_system.h"
 #include "drake/systems/primitives/demultiplexer.h"
 #include "drake/systems/primitives/discrete_derivative.h"
+#include "drake/multibody/plant/contact_results_to_lcm.h"
 
 #include "systems/lcm_rigid_transform.h"
 
@@ -62,6 +63,7 @@ using drake::multibody::RevoluteJoint;
 using drake::multibody::SpatialInertia;
 using drake::systems::StateInterpolatorWithDiscreteDerivative;
 using drake::multibody::BodyIndex;
+
 
 using dairlib::systems::TransformMessageCreator;
 
@@ -144,6 +146,7 @@ int DoMain() {
 
     const drake::multibody::ModelInstanceIndex new_model =
         world_plant_parser.AddModelFromFile(sdf_path, "table");
+
     const auto& child_frame =
         world_plant->GetFrameByName("amazon_table", new_model);
     world_plant->WeldFrames(world_plant->world_frame(), child_frame, X_WT);
@@ -153,8 +156,12 @@ int DoMain() {
       std::string path =
           drake::FindResourceOrThrow(settings["objects"][objectNum][2]);
       objects_vector[objectNum] =
-          world_plant_parser.AddModelFromFile(path, path);
+          world_plant_parser.AddModelFromFile(path, settings["objects"][objectNum][0]);
+
+      
     }
+
+
   }
 
   // Finalize the plants to begin adding them to a system
@@ -275,20 +282,30 @@ int DoMain() {
 //   ----------This should be in a if(FLAGS_props) block-----------
 //   add the object pose creator/publisher
 //   no specified publish time so that a message is output every time step
-  auto object_pose_publisher = builder.AddSystem(
-      drake::systems::lcm::LcmPublisherSystem::Make<dairlib::lcmt_rigid_transform>(
-      "manip_pose", lcm, .02));
+
   
   //creates transform messages for the first manipuland
-  auto object_message_creator = builder.AddSystem<TransformMessageCreator>(world_plant->GetBodyIndices(objects_vector[0])[0]);
-  builder.Connect(world_plant->get_body_poses_output_port(),
-                  object_message_creator->get_input_port());
-  builder.Connect(object_message_creator->get_output_port(),
-                  object_pose_publisher->get_input_port());
+  for(int i = 0; i < num_manipulands; i++){
+    auto object_message_creator = builder.AddSystem<TransformMessageCreator>(world_plant->GetBodyIndices(objects_vector[i])[0]);
+
+    auto object_pose_publisher = builder.AddSystem(
+      drake::systems::lcm::LcmPublisherSystem::Make<dairlib::lcmt_rigid_transform>("manip_pose_" + std::to_string(i), lcm));
+
+
+    builder.Connect(world_plant->get_body_poses_output_port(),
+                    object_message_creator->get_input_port());
+    builder.Connect(object_message_creator->get_output_port(),
+                    object_pose_publisher->get_input_port());
+  }
+  
 //   ------------------------------------------------
+
+  drake::multibody::ConnectContactResultsToDrakeVisualizer(&builder, *world_plant, lcm);
+
 
   drake::geometry::ConnectDrakeVisualizer(
       &builder, *scene_graph, scene_graph->get_pose_bundle_output_port());
+
 
   auto diagram = builder.Build();
   drake::systems::Simulator<double> simulator(*diagram);

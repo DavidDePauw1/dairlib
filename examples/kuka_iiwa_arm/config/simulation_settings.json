@@ -2,6 +2,10 @@
     "objects": [
         
         ["block",[0.5, -0.2, 0.5] , "drake/examples/manipulation_station/models/061_foam_brick.sdf"],
+        ["block2",[0.6, 0.3, 0.2] , "drake/examples/manipulation_station/models/061_foam_brick.sdf"],
+        ["block3",[0.6, -0.3, 0.2] , "drake/examples/manipulation_station/models/061_foam_brick.sdf"],
+        ["block4",[0.5, 0.2, 0.5] , "drake/examples/manipulation_station/models/061_foam_brick.sdf"],
+
         ["sphere",[0.5, 0.5, 0.1] , "drake/examples/manipulation_station/models/sphere.sdf"]
         
     ],
