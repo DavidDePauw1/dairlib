@@ -40,6 +40,9 @@
 #include "drake/multibody/plant/contact_results_to_lcm.h"
 
 #include "systems/lcm_rigid_transform.h"
+#include "systems/lcm_kuka_push_dataframe_creator.h"
+
+
 
 
 using json = nlohmann::json;
@@ -283,55 +286,98 @@ int DoMain() {
 //   add the object pose creator/publisher
 //   no specified publish time so that a message is output every time step
 
-  
+    auto data_frame_creator = builder.AddSystem<dairlib::systems::KukaPushDataframeCreatorSystem>(14);
+    
+    auto data_frame_sender = builder.AddSystem(drake::systems::lcm::LcmPublisherSystem::Make<dairlib::lcmt_kuka_pushing_dataframe>("dataframe_out", lcm,1.0/50.0));
+
+    builder.Connect(data_frame_creator->get_dataframe_output_port(),
+                  data_frame_sender->get_input_port());
+
+    auto contact_results_message_creator= builder.template AddSystem<drake::multibody::ContactResultsToLcmSystem<double>>(*world_plant);
+
+    builder.Connect(world_plant->get_contact_results_output_port(),
+                    contact_results_message_creator->get_contact_result_input_port());
+    std::cout << "test 1" <<std::endl;
+    builder.Connect(contact_results_message_creator->get_lcm_message_output_port(),
+                    data_frame_creator->get_contact_message_input_port());
+    std::cout << "test 2" <<std::endl;
+
+    builder.Connect(world_plant->get_state_output_port(iiwa_model),
+                    data_frame_creator->get_robot_pose_input_port());
+
   //creates transform messages for the first manipuland
-  for(int i = 0; i < num_manipulands; i++){
-    auto object_message_creator = builder.AddSystem<TransformMessageCreator>(world_plant->GetBodyIndices(objects_vector[i])[0]);
+    for(int i = 0; i < num_manipulands; i++){
+        auto object_message_creator = builder.AddSystem<TransformMessageCreator>(world_plant->GetBodyIndices(objects_vector[i])[0]);
 
-    auto object_pose_publisher = builder.AddSystem(
-      drake::systems::lcm::LcmPublisherSystem::Make<dairlib::lcmt_rigid_transform>("manip_pose_" + std::to_string(i), lcm));
+        auto object_pose_publisher = builder.AddSystem(
+        drake::systems::lcm::LcmPublisherSystem::Make<dairlib::lcmt_rigid_transform>("manip_pose_" + std::to_string(i), lcm));
 
 
-    builder.Connect(world_plant->get_body_poses_output_port(),
-                    object_message_creator->get_input_port());
-    builder.Connect(object_message_creator->get_output_port(),
-                    object_pose_publisher->get_input_port());
-  }
+        builder.Connect(world_plant->get_body_poses_output_port(),
+                        object_message_creator->get_input_port());
+        builder.Connect(object_message_creator->get_output_port(),
+                        object_pose_publisher->get_input_port());
+
+        const auto indices = world_plant->GetBodyIndices(objects_vector[i]);
+
+
+        data_frame_creator->add_manip_pose_input_port(&builder, object_message_creator->get_output_port(),world_plant->get_body(indices[0]).name());
+
+        std::cout << "setup manip number: " << std::to_string(i) << std::endl;
+
+    }
+
+    std::cout << "test 3" <<std::endl;
+
+
+  //add output
+  
   
 //   ------------------------------------------------
 
-  drake::multibody::ConnectContactResultsToDrakeVisualizer(&builder, *world_plant, lcm);
 
 
-  drake::geometry::ConnectDrakeVisualizer(
-      &builder, *scene_graph, scene_graph->get_pose_bundle_output_port());
+    // drake::multibody::ConnectContactResultsToDrakeVisualizer(&builder, *world_plant, lcm);
 
 
-  auto diagram = builder.Build();
-  drake::systems::Simulator<double> simulator(*diagram);
+    drake::geometry::ConnectDrakeVisualizer(
+        &builder, *scene_graph, scene_graph->get_pose_bundle_output_port());
 
-  if (FLAGS_props) {
-    drake::systems::Context<double>& context =
-        diagram->GetMutableSubsystemContext(*world_plant,
-                                            &simulator.get_mutable_context());
+    std::cout << "pre build" << std::endl;
+    auto diagram = builder.Build();
 
-    auto& state2 = diagram->GetMutableSubsystemState(
-        *world_plant, &simulator.get_mutable_context());
-    // Adjusts starting positions of manipulands
-    for (int x = 0; x < num_manipulands; x++) {
-      const auto indices = world_plant->GetBodyIndices(objects_vector[x]);
-      world_plant->SetFreeBodyPose(
-          context, &state2, world_plant->get_body(indices[0]),
-          RigidTransform<double>(Vector3d(settings["objects"][x][1][0],
-                                          settings["objects"][x][1][1],
-                                          settings["objects"][x][1][2])));
+    std::cout << "post build" << std::endl;
+
+    drake::systems::Simulator<double> simulator(*diagram);
+
+    if (FLAGS_props) {
+        drake::systems::Context<double>& context =
+            diagram->GetMutableSubsystemContext(*world_plant,
+                                                &simulator.get_mutable_context());
+
+        auto& state2 = diagram->GetMutableSubsystemState(
+            *world_plant, &simulator.get_mutable_context());
+        // Adjusts starting positions of manipulands
+        for (int x = 0; x < num_manipulands; x++) {
+        const auto indices = world_plant->GetBodyIndices(objects_vector[x]);
+        world_plant->SetFreeBodyPose(
+            context, &state2, world_plant->get_body(indices[0]),
+            RigidTransform<double>(Vector3d(settings["objects"][x][1][0],
+                                            settings["objects"][x][1][1],
+                                            settings["objects"][x][1][2])));
+
+        std::cout << "setup manip number: " << std::to_string(x) << std::endl;
+
+        }
+
     }
+    std::cout << "post prop setup" << std::endl;
 
-  }
 
   simulator.set_publish_every_time_step(false);
   simulator.set_target_realtime_rate(1.0);
   simulator.AdvanceTo(std::numeric_limits<double>::infinity());
+
   return 0;
 }
 

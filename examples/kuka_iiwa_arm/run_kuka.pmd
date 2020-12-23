@@ -77,4 +77,8 @@ group "2.lcm-tools" {
         exec = "bazel-bin/director/signal-scope";
         host = "localhost";
     }
+    cmd "2.lcm-logger" {
+        exec = "lcm_logs/log_command.sh";
+        host = "localhost";
+    }
 }

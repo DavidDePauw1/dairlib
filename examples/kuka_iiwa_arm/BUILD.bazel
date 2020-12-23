@@ -104,7 +104,8 @@ cc_binary(
         "@gflags",
         "@lcm",
         "//lcmtypes:lcmt_robot",
-        "//systems:lcm_rigid_transform"
+        "//systems:lcm_rigid_transform",
+        "//systems:lcm_kuka_push_dataframe_creator"
     ],
 )
 
@@ -160,6 +161,13 @@ cc_binary(
     ],
     tags = ["manual"],
     deprecation = "Attic/RigidBodyTree is deprecated.",
+)
+
+py_binary(
+    name = "extract_kuka_dataframe_to_pickle",
+    srcs = ["extract_kuka_dataframe_to_pickle.py"],
+    deps = ["//lcmtypes:lcmtypes_robot_py", "@drake//lcmtypes:lcmtypes_drake_py", "@lcm//:lcm-python","@drake//:module_py","@lcmtypes_bot2_core//:lcmtypes_bot2_core_py"],
+    main = "extract_kuka_dataframe_to_pickle.py"
 )
 
 cc_library(
