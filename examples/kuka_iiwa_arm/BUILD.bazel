@@ -16,46 +16,46 @@ load(
     "drake_py_unittest",
 )
 
-cc_binary(
-    name = "kuka_inv_demo",
-    srcs = ["iiwa_inverse_kin_demo.cc"],
-    data = glob(["config/**"]),
-    deps = [
-            ":json",
-            "@lcm",
-            "@drake//:drake_shared_library",
-            "//systems/controllers:endeffector_velocity_controller",
-            "//systems/controllers:endeffector_position_controller",
-    ]
-)
+#cc_binary(
+#    name = "kuka_inv_demo",
+#    srcs = ["iiwa_inverse_kin_demo.cc"],
+#    data = glob(["config/**"]),
+#    deps = [
+#            ":json",
+#            "@lcm",
+#            "@drake//:drake_shared_library",
+#            "//systems/controllers:endeffector_velocity_controller",
+#            "//systems/controllers:endeffector_position_controller",
+#    ]
+#)
 
-cc_binary(
-    name = "kuka_crIK_demo",
-    srcs = ["iiwa_cr_IK_demo.cc"],
-    data = glob(["config/**"]),
-    deps = [
-            ":json",
-            "@lcm",
-            "@drake//:drake_shared_library",
-            "//systems/controllers:endeffector_velocity_controller",
-            "//systems/controllers:endeffector_position_controller",
-            "//systems:lcm_rigid_transform"      
+#cc_binary(
+#    name = "kuka_crIK_demo",
+#    srcs = ["iiwa_cr_IK_demo.cc"],
+#    data = glob(["config/**"]),
+#    deps = [
+#            ":json",
+#            "@lcm",
+#            "@drake//:drake_shared_library",
+#            "//systems/controllers:endeffector_velocity_controller",
+#            "//systems/controllers:endeffector_position_controller",
+#            "//systems:lcm_rigid_transform"      
+#
+#    ]
+#)
 
-    ]
-)
-
-cc_binary(
-    name = "manip_push_test",
-    srcs = ["manip_push_test.cc"],
-    data = glob(["config/**"]),
-    deps = [
-            ":json",
-            "@lcm",
-            "@drake//:drake_shared_library",
-            "//systems/controllers:IK_target_tracking_system",  
-            "//systems:lcm_rigid_transform"      
-    ]
-)
+#cc_binary(
+#    name = "manip_push_test",
+#    srcs = ["manip_push_test.cc"],
+#    data = glob(["config/**"]),
+#    deps = [
+#            ":json",
+#            "@lcm",
+#            "@drake//:drake_shared_library",
+#            "//systems/controllers:IK_target_tracking_system",  
+#            "//systems:lcm_rigid_transform"      
+#    ]
+#)
 
 cc_binary(
     name = "manip_push_test_Jac",
@@ -110,18 +110,18 @@ cc_binary(
 )
 
 
-cc_binary(
-    name="iiwa_controller_demo",
-    srcs = ["iiwa_controller_demo.cc"],
-    data = glob(["config/**"]),
-    deps = [
-            ":json",
-            "@lcm",
-            "@drake//:drake_shared_library",
-            "//systems/controllers:endeffector_velocity_controller",
-            "//systems/controllers:endeffector_position_controller",
-    ]
-)
+#cc_binary(
+#    name="iiwa_controller_demo",
+#    srcs = ["iiwa_controller_demo.cc"],
+#    data = glob(["config/**"]),
+#    deps = [
+#            ":json",
+#            "@lcm",
+#            "@drake//:drake_shared_library",
+#            "//systems/controllers:endeffector_velocity_controller",
+#            "//systems/controllers:endeffector_position_controller",
+#    ]
+#)
 
 cc_binary(
     name="iiwa_oscillate",
